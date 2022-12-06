@@ -6,6 +6,7 @@
 #include <tchar.h>
 #include <locale.h>
 #include <Windows.h>
+#include <TlHelp32.h>
 
 #define STR_LEN 256
 #define CMD_TOKEN_NUM 10
@@ -14,6 +15,8 @@ TCHAR ERROR_CMD[] = _T("'%s' is not executable program. \n");
 
 int CmdProcessing(int);
 int CmdReadTokenize(void);
+void ListProcessInfo(void);
+
 TCHAR* StrLower(TCHAR*);
 TCHAR cmdString[STR_LEN];
 TCHAR cmdTokenList[CMD_TOKEN_NUM][STR_LEN];
@@ -83,6 +86,9 @@ int CmdProcessing(int tokenNum)
 
         _tprintf(_T("echo message:%s \n"), optString);
     }
+    else if (!_tcscmp(cmdTokenList[0], _T("lp"))) {
+        ListProcessInfo();
+    }
     else
     {
         _tcscpy_s(cmdStringWithOptions, cmdTokenList[0]);
@@ -120,6 +126,30 @@ int CmdReadTokenize(void)
     }
 
     return tokenNum;
+}
+
+void ListProcessInfo(void) {
+    HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    
+    if (hProcessSnap == INVALID_HANDLE_VALUE) {
+        _tprintf(_T("CreateToolhelp32Snapshot error\n"));
+        return;
+    }
+    PROCESSENTRY32 pe32;
+    pe32.dwSize = sizeof(pe32);
+    
+    if (!Process32First(hProcessSnap, &pe32)) {
+        _tprintf(_T("Process32First error! \n"));
+        CloseHandle(hProcessSnap);
+        return;
+    }
+    
+    HANDLE hProcess;
+    do {
+        _tprintf(_T("%25s %5d \n"), pe32.szExeFile, pe32.th32ProcessID);
+    } while (Process32Next(hProcessSnap, &pe32));
+    
+    return;
 }
 
 TCHAR* StrLower(TCHAR* pStr) {
