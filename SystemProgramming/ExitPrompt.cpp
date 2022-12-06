@@ -16,6 +16,7 @@ TCHAR ERROR_CMD[] = _T("'%s' is not executable program. \n");
 int CmdProcessing(int);
 int CmdReadTokenize(void);
 void ListProcessInfo(void);
+void KillProcess(void);
 
 TCHAR* StrLower(TCHAR*);
 TCHAR cmdString[STR_LEN];
@@ -89,6 +90,15 @@ int CmdProcessing(int tokenNum)
     else if (!_tcscmp(cmdTokenList[0], _T("lp"))) {
         ListProcessInfo();
     }
+    else if (!_tcscmp(cmdTokenList[0], _T("kp"))) {
+        if (tokenNum < 2)
+        {
+            _tprintf(_T("usage: kp <process name> \n"));
+            return 0;
+        }
+
+        KillProcess();
+    }
     else
     {
         _tcscpy_s(cmdStringWithOptions, cmdTokenList[0]);
@@ -121,7 +131,7 @@ int CmdReadTokenize(void)
 
     while (token != NULL)
     {
-        _tcscpy_s(cmdTokenList[tokenNum++], StrLower(token));
+        _tcscpy_s(cmdTokenList[tokenNum++], token);
         token = _tcstok_s(NULL, seps, &next_token);
     }
 
@@ -130,26 +140,70 @@ int CmdReadTokenize(void)
 
 void ListProcessInfo(void) {
     HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    
+
     if (hProcessSnap == INVALID_HANDLE_VALUE) {
         _tprintf(_T("CreateToolhelp32Snapshot error\n"));
         return;
     }
     PROCESSENTRY32 pe32;
-    pe32.dwSize = sizeof(pe32);
-    
+    pe32.dwSize = sizeof(PROCESSENTRY32);
+
     if (!Process32First(hProcessSnap, &pe32)) {
         _tprintf(_T("Process32First error! \n"));
         CloseHandle(hProcessSnap);
         return;
     }
-    
-    HANDLE hProcess;
+
     do {
         _tprintf(_T("%25s %5d \n"), pe32.szExeFile, pe32.th32ProcessID);
     } while (Process32Next(hProcessSnap, &pe32));
-    
+
     return;
+}
+
+void KillProcess(void) {
+    HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hProcessSnap == INVALID_HANDLE_VALUE)
+    {
+        _tprintf(_T("CreateToolhelp32Snapshot (of processes)"));
+        return;
+    }
+
+    PROCESSENTRY32 pe32;
+    pe32.dwSize = sizeof(PROCESSENTRY32);
+
+    if (!Process32First(hProcessSnap, &pe32))
+    {
+        _tprintf(_T("Process32First"));
+        CloseHandle(hProcessSnap);
+        return;
+    }
+
+    HANDLE hProcess;
+    BOOL isKill = FALSE;
+
+    do
+    {
+        if (_tcscmp(pe32.szExeFile, cmdTokenList[1]) == 0)
+        {
+            hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pe32.th32ProcessID);
+            
+            if (hProcess != NULL)
+            {
+                TerminateProcess(hProcess, -1);
+                isKill = TRUE;
+            }
+
+            CloseHandle(hProcess);
+            break;
+        }
+
+    } while (Process32Next(hProcessSnap, &pe32));
+
+    CloseHandle(hProcessSnap);
+
+    if (isKill == FALSE)
+        _tprintf(_T("Kill process fail, Try again! \n"));
 }
 
 TCHAR* StrLower(TCHAR* pStr) {
